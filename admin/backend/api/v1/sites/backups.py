@@ -21,6 +21,7 @@ from pilot.exceptions import BenchError
 from pilot.internal.site_paths import site_exists
 from pilot.internal.validators import validate_cron_expression
 from pilot.tasks.backup_site import BackupSiteTask
+from pilot.tasks.restore_site import RestoreSiteTask
 
 _DEFAULT_BACKUPS_PAGE_SIZE = 20
 
@@ -83,6 +84,66 @@ def _backup_set_resource(s) -> dict:
             for f in s.files
         ],
     }
+
+
+@sites_bp.post("/<name>/backups/<timestamp>/actions/restore")
+@require_scope(site_name)
+def restore_backup(name: str, timestamp: str):
+    from admin.backend.providers.backups import BackupProvider
+
+    bench_root = Path(current_app.config["BENCH_ROOT"])
+    if not site_exists(bench_root, name):
+        return site_not_found()
+
+    data = request.get_json(silent=True)
+    if data is None:
+        data = {}
+    elif not isinstance(data, dict):
+        return malformed_body()
+
+    target_site = data.get("target_site", name)
+    if not isinstance(target_site, str) or not target_site.strip():
+        return invalid_fields()
+    target_site = target_site.strip()
+
+    admin_password = data.get("admin_password")
+    if admin_password is not None and not isinstance(admin_password, str):
+        return invalid_fields()
+
+    try:
+        sets = BackupProvider(bench_root, name).get_all()
+    except Exception:
+        return internal_error("Could not read site backups.")
+    if not any(backup.timestamp == timestamp for backup in sets):
+        return error_response("backup_not_found", "Backup not found.", 404)
+
+    bench = Bench(bench_root)
+    try:
+        bench.site(name).backups.paths_for_restore(timestamp)
+    except BenchError as error:
+        return error_response("backup_not_local", str(error), 422)
+
+    if not site_exists(bench_root, target_site):
+        if not isinstance(admin_password, str) or not admin_password.strip():
+            return error_response(
+                "admin_password_required",
+                "Administrator password is required for a new site.",
+                422,
+            )
+
+    try:
+        task_id = RestoreSiteTask.queue(
+            bench,
+            source_site=name,
+            target_site=target_site,
+            timestamp=timestamp,
+            admin_password=admin_password,
+            idempotency_key=request.headers.get("Idempotency-Key"),
+            resource_key=f"site:{target_site.lower()}",
+        )
+    except Exception as error:
+        return task_failure(error)
+    return accepted_task_response(bench_root, task_id)
 
 
 @sites_bp.get("/<name>/backups/<timestamp>/files/<file_id>/content")

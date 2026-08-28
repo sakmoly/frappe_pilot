@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { Button, TextInput } from 'frappe-ui'
 
 import ActionDialog from '@/components/common/ActionDialog.vue'
+import ClearSiteDataDialog from '@/components/sites/ClearSiteDataDialog.vue'
 
 import { apiErrorMessage } from '@/api/client'
 import { sitesApi } from '@/api/sites'
@@ -20,6 +21,7 @@ const siteSubject = computed(() => ({
 const router = useRouter()
 
 const showMigrate = ref(false)
+const showClearData = ref(false)
 const migrating = ref(false)
 const migrateError = ref('')
 
@@ -48,6 +50,16 @@ const DangerActions = [
     action: () => {
       migrateError.value = ''
       showMigrate.value = true
+    },
+  },
+  {
+    key: 'clear-data',
+    label: 'Clear site data',
+    buttonLabel: 'Clear data',
+    description:
+      'Remove transactions for one company. Optionally clear master data and chart of accounts. Requires a backup first.',
+    action: () => {
+      showClearData.value = true
     },
   },
   {
@@ -202,4 +214,6 @@ const confirmDrop = async () => {
       </TextInput>
     </template>
   </ActionDialog>
+
+  <ClearSiteDataDialog v-model:open="showClearData" :site-name="siteName" />
 </template>

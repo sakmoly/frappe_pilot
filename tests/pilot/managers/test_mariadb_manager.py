@@ -868,6 +868,28 @@ def test_sql_quote_escapes_backslash() -> None:
     assert MariaDBManager._sql_quote("a\\b") == "'a\\\\b'"
 
 
+def test_temporary_setup_user_grants_all_privileges_for_managed_server() -> None:
+    manager = _manager()
+    with patch.object(manager, "run_admin_sql") as run_sql:
+        with manager.temporary_setup_user("_site123"):
+            pass
+    sql = run_sql.call_args_list[0][0][0]
+    assert "GRANT RELOAD, CREATE USER ON *.*" in sql
+    assert "GRANT ALL PRIVILEGES ON `_site123`.*" in sql
+    assert "DROP USER IF EXISTS 'pilot_setup_" in run_sql.call_args_list[1][0][0]
+
+
+def test_temporary_setup_user_uses_explicit_grants_for_existing_server() -> None:
+    manager = MariaDBManager(MariaDBConfig(root_password="pw", existing=True))
+    with patch.object(manager, "run_admin_sql") as run_sql:
+        with manager.temporary_setup_user("_site123"):
+            pass
+    sql = run_sql.call_args_list[0][0][0]
+    assert "GRANT RELOAD, CREATE USER, CREATE ON *.*" in sql
+    assert "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP" in sql
+    assert "GRANT ALL PRIVILEGES ON `_site123`.*" not in sql
+
+
 def test_secure_installation_noop_when_credentials_valid() -> None:
     manager = _manager()
     with (

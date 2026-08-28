@@ -85,6 +85,13 @@ export const sitesApi = {
       apiUrl(
         `sites/${encodeURIComponent(name)}/backups/${encodeURIComponent(timestamp)}/files/${encodeURIComponent(fileId)}/content`,
       ),
+    restore: (name, timestamp, payload = {}) =>
+      request
+        .post(
+          `sites/${encodeURIComponent(name)}/backups/${encodeURIComponent(timestamp)}/actions/restore`,
+          { json: payload },
+        )
+        .json(),
     downloadLinks: (name, timestamp) =>
       request
         .get(
@@ -97,5 +104,20 @@ export const sitesApi = {
         request.put(`sites/${encodeURIComponent(name)}/backup-schedule`, { json: payload }).json(),
       remove: (name) => request.delete(`sites/${encodeURIComponent(name)}/backup-schedule`),
     },
+  },
+
+  dataClearing: {
+    companies: (name) =>
+      unwrap(request.get(`sites/${encodeURIComponent(name)}/data-clearing/companies`).json()),
+    preview: (name, company) =>
+      unwrap(
+        request
+          .get(`sites/${encodeURIComponent(name)}/data-clearing/preview`, {
+            searchParams: { company },
+          })
+          .json(),
+      ),
+    clear: (name, payload) =>
+      request.post(`sites/${encodeURIComponent(name)}/actions/clear-data`, { json: payload }).json(),
   },
 }

@@ -25,6 +25,7 @@ _CATEGORY_BY_COMMAND = {
     "new-site-from-backup": "Sites",
     "reinstall-site": "Sites",
     "restore-site": "Sites",
+    "clear-site-data": "Sites",
     "setup-letsencrypt": "Sites",
     "migrate": "Updates",
     "migration-backup": "Updates",

@@ -14,6 +14,7 @@ import {
 
 import EmptyState from '@/components/common/EmptyState.vue'
 import BackupConfigDialog from '@/components/sites/BackupConfigDialog.vue'
+import RestoreBackupDialog from '@/components/sites/RestoreBackupDialog.vue'
 
 import { sitesApi } from '@/api/sites'
 import { tasksApi } from '@/api/tasks'
@@ -121,6 +122,18 @@ const menuOptions = (set) => {
     ['site_config', 'Download Config'],
   ]
   return [
+    ...(fileOf(set, 'database')?.path
+      ? [
+          {
+            label: 'Restore',
+            icon: 'lucide-history',
+            onClick: () => {
+              restoreTarget.value = set
+              showRestore.value = true
+            },
+          },
+        ]
+      : []),
     ...kinds
       .filter(([k]) => fileOf(set, k))
       .map(([k, label]) => ({
@@ -171,6 +184,9 @@ const deleteTarget = ref(null)
 const deleting = ref(false)
 const deleteError = ref('')
 
+const showRestore = ref(false)
+const restoreTarget = ref(null)
+
 const confirmDelete = async () => {
   deleting.value = true
   deleteError.value = ''
@@ -214,6 +230,11 @@ onMounted(() => {
     </div>
 
     <BackupConfigDialog ref="configRef" :site-name="siteName" @saved="loadConfig" />
+    <RestoreBackupDialog
+      v-model:open="showRestore"
+      :source-site="siteName"
+      :backup="restoreTarget"
+    />
 
     <ErrorMessage v-if="error" :message="error" />
 

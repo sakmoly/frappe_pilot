@@ -100,6 +100,7 @@ class SiteCommands:
         if db_type != "mariadb":
             yield self.site.bench.db_root_args
             return
+        from pilot.core.bench.config_files import BenchConfigFiles
         from pilot.core.database import site_database_name
         from pilot.managers.database import MariaDBManager
 
@@ -113,6 +114,7 @@ class SiteCommands:
                 f"Cannot determine the database for site '{self.site.config.name}'; refusing to "
                 "run frappe with the root database password on the command line."
             )
+        BenchConfigFiles(self.site.bench).ensure_mariadb_rds_mode()
         manager = MariaDBManager(self.site.bench.config.mariadb)
         with manager.temporary_setup_user(database) as (user, password):
             yield ["--db-root-username", user, "--db-root-password", password]

@@ -39,6 +39,12 @@ _GLOBAL_INTEGER_VARIABLES = {
     "innodb_buffer_pool_size_max",
     "max_connections",
 }
+# Frappe site setup against an external admin that holds these privileges, not ALL PRIVILEGES.
+_SITE_SETUP_PRIVILEGES = (
+    "SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, REFERENCES, INDEX, ALTER, "
+    "CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, CREATE VIEW, SHOW VIEW, "
+    "CREATE ROUTINE, ALTER ROUTINE, EVENT, TRIGGER"
+)
 
 
 class _ManagedCnfParser(configparser.ConfigParser):
@@ -835,12 +841,16 @@ class MariaDBManager(UserOwnedDBManager):
         password = secrets.token_urlsafe(24)
         quoted_user = self._sql_quote(user)
         database = db_name.replace("`", "")
+        global_grants = "RELOAD, CREATE USER"
+        if self.config.existing:
+            global_grants += ", CREATE"
+        site_grant = self._temp_user_site_grant(quoted_user, database)
         self.run_admin_sql(
             "\n".join(
                 [
                     f"CREATE USER {quoted_user}@'%' IDENTIFIED BY {self._sql_quote(password)};",
-                    f"GRANT RELOAD, CREATE USER ON *.* TO {quoted_user}@'%';",
-                    f"GRANT ALL PRIVILEGES ON `{database}`.* TO {quoted_user}@'%' WITH GRANT OPTION;",
+                    f"GRANT {global_grants} ON *.* TO {quoted_user}@'%';",
+                    site_grant,
                     "FLUSH PRIVILEGES;",
                 ]
             )
@@ -849,6 +859,14 @@ class MariaDBManager(UserOwnedDBManager):
             yield user, password
         finally:
             self.run_admin_sql(f"DROP USER IF EXISTS {quoted_user}@'%';\nFLUSH PRIVILEGES;")
+
+    def _temp_user_site_grant(self, quoted_user: str, database: str) -> str:
+        if self.config.existing:
+            return (
+                f"GRANT {_SITE_SETUP_PRIVILEGES} ON `{database}`.* "
+                f"TO {quoted_user}@'%' WITH GRANT OPTION;"
+            )
+        return f"GRANT ALL PRIVILEGES ON `{database}`.* TO {quoted_user}@'%' WITH GRANT OPTION;"
 
     def secure_installation(self) -> None:
         """Create/update the admin account and apply basic hardening."""

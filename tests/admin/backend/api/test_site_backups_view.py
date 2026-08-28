@@ -251,3 +251,82 @@ def test_backup_schedule_delete_returns_no_content(tmp_path: Path) -> None:
     assert response.status_code == 204
     assert response.data == b""
     remove_schedule.assert_called_once_with("site.localhost")
+
+
+def test_restore_backup_queues_task_for_same_site(tmp_path: Path) -> None:
+    bench_root = tmp_path / "benches" / "current"
+    _make_site(bench_root, "site.localhost")
+    _make_backup_file(bench_root, "site.localhost", "20240101_000000", "database.sql.gz")
+    client = _client(bench_root)
+
+    response = _request(
+        client,
+        "post",
+        "/api/v1/sites/site.localhost/backups/20240101_000000/actions/restore",
+        json={},
+    )
+
+    body = response.get_json()
+    assert response.status_code == 202
+    assert body["command"] == "restore-site"
+    assert body["args"] == {
+        "source_site": "site.localhost",
+        "target_site": "site.localhost",
+        "timestamp": "20240101_000000",
+    }
+
+
+def test_restore_backup_accepts_different_target_site(tmp_path: Path) -> None:
+    bench_root = tmp_path / "benches" / "current"
+    _make_site(bench_root, "source.localhost")
+    _make_site(bench_root, "target.localhost")
+    _make_backup_file(bench_root, "source.localhost", "20240101_000000", "database.sql.gz")
+    client = _client(bench_root)
+
+    response = _request(
+        client,
+        "post",
+        "/api/v1/sites/source.localhost/backups/20240101_000000/actions/restore",
+        json={"target_site": "target.localhost"},
+    )
+
+    body = response.get_json()
+    assert response.status_code == 202
+    assert body["args"]["target_site"] == "target.localhost"
+
+
+def test_restore_backup_requires_password_for_new_target_site(tmp_path: Path) -> None:
+    bench_root = tmp_path / "benches" / "current"
+    _make_site(bench_root, "source.localhost")
+    _make_backup_file(bench_root, "source.localhost", "20240101_000000", "database.sql.gz")
+    client = _client(bench_root)
+
+    response = _request(
+        client,
+        "post",
+        "/api/v1/sites/source.localhost/backups/20240101_000000/actions/restore",
+        json={"target_site": "new.localhost"},
+    )
+
+    assert response.status_code == 422
+    assert response.get_json()["error"] == "admin_password_required"
+
+
+def test_restore_backup_rejects_offsite_only_backup(tmp_path: Path) -> None:
+    bench_root = tmp_path / "benches" / "current"
+    _make_site(bench_root, "site.localhost")
+    client = _client(bench_root)
+    backup = Mock()
+    backup.timestamp = "20240101_000000"
+
+    with patch("admin.backend.api.v1.sites.backups.BackupProvider") as provider_cls:
+        provider_cls.return_value.get_all.return_value = [backup]
+        response = _request(
+            client,
+            "post",
+            "/api/v1/sites/site.localhost/backups/20240101_000000/actions/restore",
+            json={},
+        )
+
+    assert response.status_code == 422
+    assert response.get_json()["error"] == "backup_not_local"

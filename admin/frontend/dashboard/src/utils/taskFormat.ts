@@ -53,6 +53,8 @@ const COMMAND_LABELS = {
   'setup-nginx': 'Setup Nginx',
   'setup-letsencrypt': "Setup Let's Encrypt",
   'new-site-from-backup': 'Restore Site',
+  'restore-site': 'Restore Site',
+  'clear-site-data': 'Clear Site Data',
   'reinstall-site': 'Reinstall Site',
   'wizard-setup': 'Wizard Setup',
   'update-cli': 'Update CLI',
@@ -67,6 +69,8 @@ export const TASK_TYPES = [
     commands: [
       'new-site',
       'new-site-from-backup',
+      'restore-site',
+      'clear-site-data',
       'drop-site',
       'reinstall-site',
       'revert-site',
@@ -142,6 +146,8 @@ const SITE_ARG_KEY = {
   'reinstall-site': 'site',
   'new-site': 'name',
   'new-site-from-backup': 'name',
+  'restore-site': 'target_site',
+  'clear-site-data': 'site',
 }
 
 // Work with no site of its own belongs to the server. Doubles as the value the

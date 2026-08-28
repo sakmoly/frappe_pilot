@@ -22,6 +22,16 @@ def parse_backup_timestamp(filename: str) -> str | None:
     return match.group(1) if match else None
 
 
+def backup_file_kind(filename: str) -> str:
+    if "private-files" in filename:
+        return "private-file"
+    if "files" in filename:
+        return "public-file"
+    if "database" in filename:
+        return "database"
+    return "site_config"
+
+
 class SiteBackups:
     def __init__(self, site: "Site") -> None:
         self.site = site
@@ -80,6 +90,29 @@ class SiteBackups:
         if not target.is_file():
             raise FileNotFoundError(file_id)
         return target
+
+    def paths_for_restore(self, timestamp: str) -> tuple[str, str | None, str | None]:
+        """Local backup file paths for one run, or raise if the database is not on disk."""
+        from pilot.exceptions import BenchError
+
+        database = public = private = None
+        if self.directory.is_dir():
+            for path in self.directory.iterdir():
+                if not path.is_file() or parse_backup_timestamp(path.name) != timestamp:
+                    continue
+                kind = backup_file_kind(path.name)
+                if kind == "database":
+                    database = str(path)
+                elif kind == "public-file":
+                    public = str(path)
+                elif kind == "private-file":
+                    private = str(path)
+        if not database:
+            raise BenchError(
+                f"Backup {timestamp} is not available locally. "
+                "Download it first or choose a backup stored on this server."
+            )
+        return database, public, private
 
     def download_links(self, timestamp: str) -> dict:
         offsite = OffsiteBackup.from_config(self.site.bench.config.s3, self.site.bench.path)

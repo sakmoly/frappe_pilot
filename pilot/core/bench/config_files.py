@@ -47,6 +47,23 @@ class BenchConfigFiles:
         config["maintenance_mode"] = 1 if enabled else 0
         write_private_text(config_path, json.dumps(config, indent=2))
 
+    def ensure_mariadb_rds_mode(self) -> None:
+        """Frappe uses explicit grants when rds_db is set. External MariaDB admins often
+        hold those privileges with GRANT OPTION but not ALL PRIVILEGES."""
+        if self.bench.config.db_type != "mariadb" or not self.bench.config.mariadb.existing:
+            return
+        config_path = self.bench.sites_path / "common_site_config.json"
+        if not config_path.is_file():
+            return
+        try:
+            config = json.loads(config_path.read_text())
+        except json.JSONDecodeError:
+            return
+        if config.get("rds_db"):
+            return
+        config["rds_db"] = 1
+        write_private_text(config_path, json.dumps(config, indent=2) + "\n")
+
     def sync_s3_credentials(self, s3_config: "S3Config") -> None:
         config_path = self.bench.sites_path / "common_site_config.json"
         if not config_path.exists():
