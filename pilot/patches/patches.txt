@@ -1,0 +1,5 @@
+[pre_update]
+
+[post_update]
+merge_common_config
+hash_admin_password
