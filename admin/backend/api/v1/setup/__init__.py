@@ -19,7 +19,7 @@ from admin.backend.api.v1.setup.state import (
     wizard_marker_path,
 )
 from pilot.config import BenchConfig
-from pilot.config.bench import FRAMEWORK_BRANCHES
+from pilot.config.bench import FRAMEWORK_BRANCHES, default_python_for_framework_branch
 from pilot.core.bench import Bench
 from pilot.exceptions import TaskConflictError, TaskNotFoundError
 from pilot.internal.atomic_file import exclusive_file_lock, replace_private_text_locked
@@ -46,7 +46,14 @@ def get_configuration():
 
 @setup_bp.get("/framework-branches")
 def get_framework_branches():
-    return jsonify({"branches": FRAMEWORK_BRANCHES})
+    return jsonify(
+        {
+            "branches": FRAMEWORK_BRANCHES,
+            "python_defaults": {
+                branch: default_python_for_framework_branch(branch) for branch in FRAMEWORK_BRANCHES
+            },
+        }
+    )
 
 
 @setup_bp.put("/configuration")

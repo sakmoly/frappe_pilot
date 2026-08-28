@@ -73,6 +73,32 @@ def fail_task(bench_root: Path, task_id: str) -> None:
     )
 
 
+def test_framework_branches_includes_version_15(tmp_path: Path) -> None:
+    client = setup_client(tmp_path)
+
+    response = client.get("/api/v1/setup/framework-branches")
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert "version-15" in payload["branches"]
+    assert payload["python_defaults"]["version-15"] == "3.11"
+    assert payload["python_defaults"]["version-16"] == "3.14"
+
+
+def test_configuration_update_syncs_python_for_version_15(tmp_path: Path) -> None:
+    client = setup_client(tmp_path)
+    assert save_configuration(client).status_code == 200
+
+    response = client.put(
+        "/api/v1/setup/configuration",
+        json={"app_branch": "version-15"},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["app_branch"] == "version-15"
+    assert BenchConfig.read(tmp_path).python_version == "3.11"
+
+
 def test_configuration_update_is_sanitized_and_preserves_unknown_keys(
     tmp_path: Path,
 ) -> None:

@@ -36,6 +36,7 @@ const {
   rootUserPlaceholder,
   dbTypeOptions,
   branchOptions,
+  frameworkPythonHint,
   stepSequence,
   stepNumber,
   isConfiguring,
@@ -117,6 +118,9 @@ const {
         <!-- Customize -->
         <div v-show="currentStep === 'customize'" class="flex flex-col gap-4">
           <Select label="Frappe branch" v-model="appBranch" :options="branchOptions" />
+          <p v-if="frameworkPythonHint" class="text-ink-gray-5 text-p-sm">
+            {{ frameworkPythonHint }}
+          </p>
           <TextInput label="Frappe repository" v-model="appRepo" />
           <ErrorMessage v-show="errorMessage" :message="errorMessage" />
         </div>

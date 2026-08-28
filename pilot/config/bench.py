@@ -74,7 +74,18 @@ FLAT_KEYS = {
 }
 
 # Framework branches the setup wizard offers, newest/recommended first.
-FRAMEWORK_BRANCHES = ["version-16", "develop"]
+FRAMEWORK_BRANCHES = ["version-16", "version-15", "develop"]
+
+
+def default_python_for_framework_branch(branch: str) -> str:
+    """Python version Pilot picks when the setup wizard sets a framework branch."""
+    normalized = branch.strip().lower()
+    if normalized == "develop":
+        return "3.14"
+    if normalized.startswith("version-15"):
+        return "3.11"
+    return "3.14"
+
 
 _DEFAULT_DATA: dict = {
     "bench": {"name": "", "python": "3.14"},
@@ -650,7 +661,9 @@ class BenchConfig:
         elif key == "app_repo":
             self.apps[0].repo = str(value)
         elif key == "app_branch":
-            self.apps[0].branch = str(value)
+            branch = str(value)
+            self.apps[0].branch = branch
+            self.python_version = default_python_for_framework_branch(branch)
         elif key == "workers":
             self.workers.groups = _workers_to_groups(value)
         elif key == "production_process_manager":

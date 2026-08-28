@@ -31,6 +31,7 @@ export const useSetup = () => {
   const isLinux = ref(true)
   const isProductionHandoff = ref(false)
   const availableBranches = ref([])
+  const frameworkPythonDefaults = ref({})
   const mariadbPasswordConfigured = ref(false)
   const postgresPasswordConfigured = ref(false)
   const mariadbLocalAvailable = ref(false)
@@ -84,6 +85,11 @@ export const useSetup = () => {
     const isKnown = availableBranches.value.includes(selected)
     const options = availableBranches.value.map((branch) => ({ label: branch, value: branch }))
     return selected && !isKnown ? [{ label: selected, value: selected }, ...options] : options
+  })
+
+  const frameworkPythonHint = computed(() => {
+    const python = frameworkPythonDefaults.value[appBranch.value]
+    return python ? `This branch uses Python ${python}.` : ''
   })
 
   // Steps
@@ -151,9 +157,12 @@ export const useSetup = () => {
 
   const loadBranches = async () => {
     try {
-      availableBranches.value = (await setupApi.branches()).branches || []
+      const data = await setupApi.branches()
+      availableBranches.value = data.branches || []
+      frameworkPythonDefaults.value = data.python_defaults || {}
     } catch {
       availableBranches.value = []
+      frameworkPythonDefaults.value = {}
     }
   }
 
@@ -347,6 +356,7 @@ export const useSetup = () => {
     rootUserPlaceholder,
     dbTypeOptions: DB_TYPE_OPTIONS,
     branchOptions,
+    frameworkPythonHint,
     stepSequence,
     stepNumber,
     isConfiguring,
