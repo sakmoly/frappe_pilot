@@ -256,3 +256,14 @@ def test_is_setup_complete_true_when_every_wizard_is_done(tmp_path: Path) -> Non
     _make_wizard_site(tmp_path, "s.localhost", {"frappe": 1, "erpnext": 1}, disabled=[])
 
     assert site_config.is_setup_complete(tmp_path, "s.localhost") is True
+
+
+def test_sync_installed_apps_to_site_config_rewrites_stale_list(tmp_path: Path) -> None:
+    _make_sqlite_site(tmp_path, "demo.localhost", "1", ["frappe", "erpnext", "hrms"])
+    config_path = tmp_path / "sites" / "demo.localhost" / "site_config.json"
+    config_path.write_text(json.dumps({"db_type": "sqlite", "db_name": "site_db", "installed_apps": ["frappe"]}))
+
+    site_config.sync_installed_apps_to_site_config(tmp_path, "demo.localhost")
+
+    config = json.loads(config_path.read_text())
+    assert config["installed_apps"] == ["frappe", "erpnext", "hrms"]

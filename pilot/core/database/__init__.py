@@ -105,10 +105,13 @@ def make_site_database(
         # Frappe stores SQLite under sites/<site>/db/, not directly in the site folder.
         db_file = Path(bench_root) / "sites" / site_name / "db" / f"{config.get('db_name', site_name)}.db"
         return SQLite(db_path=str(db_file))
+    db_user = config.get("db_user") or config.get("db_name")
+    if not db_user:
+        raise DatabaseError(f"Site '{site_name}' has no database user configured.")
     return MariaDB(
         host=config.get("db_host", "localhost"),
         port=int(config.get("db_port", 3306)),
-        user=config["db_user"],
+        user=db_user,
         password=config["db_password"],
         database=config["db_name"],
         socket=config.get("db_socket") or None,

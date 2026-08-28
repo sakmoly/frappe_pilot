@@ -5,8 +5,32 @@ from pathlib import Path
 import pytest
 
 from pilot.config import BenchConfig
+from pilot.config.mariadb import MariaDBConfig
 
 FIXTURES = Path(__file__).parent.parent.parent / "fixtures" / "bench_toml"
+
+
+def test_benches_root_follows_symlink_to_real_bench(tmp_path: Path) -> None:
+    from pilot.config.common import CommonConfig
+
+    benches_root = tmp_path / "benches"
+    real_bench = tmp_path / "real" / "production"
+    link_bench = benches_root / "production"
+    real_bench.mkdir(parents=True)
+    benches_root.mkdir()
+    link_bench.symlink_to(real_bench, target_is_directory=True)
+
+    CommonConfig(
+        mariadb=MariaDBConfig(root_password="linked-secret", admin_user="dbadmin", existing=True)
+    ).write(tmp_path / "real")
+    (real_bench / "bench.toml").write_text(
+        '[bench]\nname = "production"\npython = "3.11"\n\n'
+        '[[apps]]\nname = "frappe"\nrepo = "https://github.com/frappe/frappe"\nbranch = "version-15"\n'
+    )
+
+    config = BenchConfig.read(link_bench)
+    assert config.mariadb.admin_user == "dbadmin"
+    assert config.mariadb.root_password == "linked-secret"
 
 
 @pytest.mark.parametrize(

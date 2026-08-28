@@ -53,6 +53,9 @@ class SiteCommands:
             cmd += ["--with-private-files", private_files]
         with self.setup_credentials(self.site.bench.config.db_type) as credentials:
             run_command(cmd + credentials, cwd=self.site.bench.sites_path, stream_output=True)
+        from pilot.core.site.config import sync_installed_apps_to_site_config
+
+        sync_installed_apps_to_site_config(self.site.bench.path, self.site.config.name)
 
     def reinstall(self, admin_password: str) -> None:
         if not isinstance(admin_password, str) or not admin_password.strip():

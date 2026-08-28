@@ -947,6 +947,20 @@ def test_make_site_database_defaults_to_mariadb(tmp_path: Path) -> None:
     assert isinstance(db, MariaDB)
 
 
+def test_make_site_database_defaults_db_user_to_db_name(tmp_path: Path) -> None:
+    _write_site_config(
+        tmp_path,
+        "mysite.local",
+        {
+            "db_type": "mariadb",
+            "db_name": "mydb",
+            "db_password": "mypw",
+        },
+    )
+    db = make_site_database(tmp_path, "mysite.local")
+    assert isinstance(db, MariaDB)
+
+
 def test_make_site_database_raises_for_missing_site(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match="ghost"):
         make_site_database(tmp_path, "ghost")

@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from pilot.core.site import exclude_disabled_apps, is_setup_complete, query_installed_apps_via_db
+from pilot.core.site import is_setup_complete, list_active_apps
 from pilot.internal.site_paths import resolve_site_path
 from pilot.managers.task import TaskReader
 
@@ -111,11 +111,10 @@ class SiteProvider:
     ) -> tuple[list, bool]:
         """Apps in use on the site, and whether it looks broken. A provisioning site is
         never probed - its database is not up yet."""
-        apps = site_config.get("installed_apps")
         if is_provisioning:
+            apps = site_config.get("installed_apps")
             return apps if isinstance(apps, list) else [], False
-        if not isinstance(apps, list):
-            apps = query_installed_apps_via_db(self._bench_root, site_name)
-            if apps is None:
-                return [], True
-        return exclude_disabled_apps(apps, self._bench_root, site_name), False
+        apps = list_active_apps(site_config, self._bench_root, site_name)
+        if not apps and site_config.get("db_name"):
+            return [], True
+        return apps, False

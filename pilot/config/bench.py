@@ -366,7 +366,7 @@ class BenchConfig:
         above whichever bench directory (or bench.toml path) was given."""
         path = Path(bench_root)
         bench_dir = path if path.is_dir() else path.parent
-        return bench_dir.parent
+        return bench_dir.resolve().parent
 
     @classmethod
     def _read_common(cls, bench_root: Path | None) -> CommonConfig | None:

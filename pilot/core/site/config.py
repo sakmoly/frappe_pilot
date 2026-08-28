@@ -50,11 +50,11 @@ _SENSITIVE_CONFIG_KEY_PARTS = (
 
 def list_installed_apps(site_config: dict, bench_root: Path, site_name: str) -> list[str]:
     """Every app installed on the site, the disabled ones included."""
-    if isinstance(site_config.get("installed_apps"), list):
-        return site_config["installed_apps"]
     apps = query_installed_apps_via_db(bench_root, site_name)
     if apps is not None:
         return apps
+    if isinstance(site_config.get("installed_apps"), list):
+        return site_config["installed_apps"]
     return query_installed_apps_via_frappe(bench_root, site_name)
 
 
@@ -117,6 +117,25 @@ def query_installed_apps_via_db(bench_root: Path, site_name: str) -> list[str] |
     if rows is None:
         return None
     return [str(row[0]).strip() for row in rows if row and str(row[0]).strip()]
+
+
+def sync_installed_apps_to_site_config(bench_root: Path, site_name: str) -> None:
+    """Rewrite site_config.json's installed_apps from the database after restore.
+
+    Frappe restore loads the SQL dump but often leaves site_config.json stale; Pilot
+    and Frappe both read that list for fast app discovery."""
+    apps = query_installed_apps_via_db(bench_root, site_name)
+    if apps is None:
+        apps = query_installed_apps_via_frappe(bench_root, site_name)
+    if not apps:
+        return
+    config_path = safe_site_config_path(bench_root / "sites", site_name)
+    with exclusive_file_lock(config_path):
+        config = json.loads(config_path.read_text())
+        if config.get("installed_apps") == apps:
+            return
+        config["installed_apps"] = apps
+        replace_private_text_locked(config_path, json.dumps(config, indent=1))
 
 
 def is_setup_complete(bench_root: Path, site_name: str) -> bool | None:
