@@ -58,8 +58,26 @@ class SiteLogin:
 
         secure = proxy_tls or (config.admin.tls and bool(site_config.get("ssl")))
         scheme = "https" if secure else "http"
-        port = 443 if proxy_tls else (config.nginx.https_port if secure else config.nginx.http_port)
+        if proxy_tls:
+            port = 443
+        elif secure:
+            port = config.nginx.https_port
+        else:
+            port = site_http_port(site_config, config)
         return origin(scheme, host, port) + "/desk"
+
+
+def site_http_port(site_config: dict, bench_config) -> int:
+    """HTTP port for a site vhost; site_config overrides the bench default."""
+    nginx_port = site_config.get("nginx_port")
+    if isinstance(nginx_port, int) and not isinstance(nginx_port, bool):
+        return nginx_port
+    host_name = site_config.get("host_name")
+    if isinstance(host_name, str) and host_name.strip():
+        parsed = urlsplit(host_name if "://" in host_name else f"//{host_name}")
+        if parsed.port:
+            return parsed.port
+    return bench_config.nginx.http_port
 
 
 def primary_host(site: str, site_config: dict) -> str:

@@ -15,6 +15,7 @@ from admin.backend.api.v1.benches.support import (
     bench_management_lock_target,
     bench_resource,
     guard_bench_management,
+    iter_bench_dirs,
     target_bench_dir,
 )
 from admin.backend.providers.bench import BenchProvider
@@ -33,11 +34,8 @@ benches_bp.before_request(guard_bench_management)
 @benches_bp.get("")
 def list_benches():
     bench_root = Path(current_app.config["BENCH_ROOT"])
-    benches_dir = bench_root.parent
     benches = []
-    for bench_dir in sorted(benches_dir.iterdir()):
-        if bench_dir.is_symlink() or not bench_dir.is_dir():
-            continue
+    for _name, bench_dir in iter_bench_dirs(bench_root.parent.resolve()):
         try:
             benches.append(bench_resource(bench_dir))
         except Exception:

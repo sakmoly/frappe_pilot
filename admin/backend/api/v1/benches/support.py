@@ -40,6 +40,9 @@ def guard_bench_management():
 def bench_resource(bench_dir: Path) -> dict:
     toml_path = bench_dir / "bench.toml"
     config = BenchConfig.read_raw(toml_path)
+    bench_name = config.get("bench", {}).get("name")
+    if not isinstance(bench_name, str) or not bench_name.strip():
+        bench_name = bench_dir.name
     admin_config = config.get("admin", {})
     production_config = config.get("production", {})
     port = admin_config.get("port")
@@ -57,7 +60,7 @@ def bench_resource(bench_dir: Path) -> dict:
     tls = admin_config.get("tls") is True
     scheme = "https" if tls and bench.has_admin_cert else "http"
     return {
-        "name": bench_dir.name,
+        "name": bench_name,
         "port": port,
         "domain": domain,
         "production": production,
@@ -81,11 +84,38 @@ def _process_manager_name(value) -> str:
     return process_manager
 
 
-def target_bench_dir(bench_root: Path, name: str) -> Path:
-    target = bench_root.parent / name
-    if target.is_symlink() or target.resolve(strict=False).parent != bench_root.parent.resolve():
+def resolve_bench_dir(benches_dir: Path, name: str) -> Path:
+    """Resolve a bench by name under benches_dir, following symlinks to the real tree."""
+    if not BENCH_NAME_RE.fullmatch(name):
         raise ValueError("Invalid bench path")
-    return target
+    entry = benches_dir / name
+    if not entry.exists():
+        raise ValueError("Invalid bench path")
+    if entry.is_symlink():
+        resolved = entry.resolve(strict=False)
+        if not resolved.is_dir() or not (resolved / "bench.toml").is_file():
+            raise ValueError("Invalid bench path")
+        return resolved
+    if entry.is_dir() and (entry / "bench.toml").is_file():
+        return entry.resolve()
+    raise ValueError("Invalid bench path")
+
+
+def iter_bench_dirs(benches_dir: Path):
+    """Each valid bench under benches_dir as (name, resolved_path)."""
+    if not benches_dir.is_dir():
+        return
+    for entry in sorted(benches_dir.iterdir()):
+        if not BENCH_NAME_RE.fullmatch(entry.name):
+            continue
+        try:
+            yield entry.name, resolve_bench_dir(benches_dir, entry.name)
+        except ValueError:
+            continue
+
+
+def target_bench_dir(bench_root: Path, name: str) -> Path:
+    return resolve_bench_dir(bench_root.parent.resolve(), name)
 
 
 def bench_lock_target(bench_root: Path, name: str) -> Path:

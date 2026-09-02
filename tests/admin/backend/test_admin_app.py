@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest.mock import PropertyMock, patch
 
 from pilot.config import BenchConfig
+from pilot.core.bench import Bench
 
 
 def _write_bench_toml(bench_dir: Path, name: str, **settings) -> None:
@@ -71,7 +72,7 @@ def test_api_benches_requires_auth(tmp_path: Path) -> None:
 
 def test_api_benches_lists_all_benches_with_reachability(tmp_path: Path) -> None:
     benches_dir = tmp_path / "benches"
-    client = _client(benches_dir / "current")
+    client = _client(benches_dir / "current", admin_allow_bench_management=True)
 
     with _listening_socket() as live_port:
         _write_raw_bench_toml(benches_dir / "live-bench", "live-bench", admin_port=live_port)
@@ -196,6 +197,31 @@ def test_api_benches_get_rejects_unknown_bench(tmp_path: Path) -> None:
 
     assert resp.status_code == 404
     assert resp.get_json()["error"]["code"] == "bench_not_found"
+
+
+def test_api_benches_follows_symlinked_bench(tmp_path: Path) -> None:
+    benches_dir = tmp_path / "benches"
+    client = _client(benches_dir / "current", admin_allow_bench_management=True)
+    real_bench = tmp_path / "real-frappe-bench"
+    fixture = Path(__file__).parent.parent.parent / "fixtures" / "bench_toml" / "legacy_supervisor.toml"
+    with _listening_socket() as live_port:
+        real_bench.mkdir(parents=True)
+        config = BenchConfig.from_file(fixture)
+        config.name = "frappe-bench"
+        config.admin.port = live_port
+        config.write(real_bench / "bench.toml")
+        (benches_dir / "frappe-bench").symlink_to(real_bench)
+
+        listed = {b["name"] for b in client.get("/api/v1/benches").get_json()}
+        got = client.get("/api/v1/benches/frappe-bench")
+        with patch.object(Bench, "run_production_action") as restart:
+            action = client.post("/api/v1/benches/frappe-bench/actions/restart")
+
+    assert "frappe-bench" in listed
+    assert got.status_code == 200
+    assert got.get_json()["name"] == "frappe-bench"
+    assert action.status_code == 200
+    restart.assert_called_once_with("restart")
 
 
 def test_api_benches_domain_options_returns_suffixes(tmp_path: Path) -> None:
